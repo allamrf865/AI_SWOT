@@ -93,75 +93,77 @@ weaknesses_text = st.text_area("Enter your Weaknesses")
 opportunities_text = st.text_area("Enter your Opportunities")
 threats_text = st.text_area("Enter your Threats")
 
-if strengths_text or weaknesses_text or opportunities_text or threats_text:
-    st.subheader("🔍 Leadership Relevance Scores")
-    
-    # Calculate relevance scores using NLP model
-    strengths_scores = calculate_leadership_scores(strengths_text, model, LEADERSHIP_QUALITIES)
-    weaknesses_scores = calculate_leadership_scores(weaknesses_text, model, LEADERSHIP_QUALITIES)
-    opportunities_scores = calculate_leadership_scores(opportunities_text, model, LEADERSHIP_QUALITIES)
-    threats_scores = calculate_leadership_scores(threats_text, model, LEADERSHIP_QUALITIES)
+# Tombol Analyze
+if st.button("Analyze"):
+    if strengths_text or weaknesses_text or opportunities_text or threats_text:
+        st.subheader("🔍 Leadership Relevance Scores")
+        
+        # Calculate relevance scores using NLP model
+        strengths_scores = calculate_leadership_scores(strengths_text, model, LEADERSHIP_QUALITIES)
+        weaknesses_scores = calculate_leadership_scores(weaknesses_text, model, LEADERSHIP_QUALITIES)
+        opportunities_scores = calculate_leadership_scores(opportunities_text, model, LEADERSHIP_QUALITIES)
+        threats_scores = calculate_leadership_scores(threats_text, model, LEADERSHIP_QUALITIES)
 
-    # Aggregate scores into a DataFrame
-    scores_df = pd.DataFrame({
-        "Qualities": LEADERSHIP_QUALITIES.keys(),
-        "Strengths": list(strengths_scores.values()),
-        "Weaknesses": list(weaknesses_scores.values()),
-        "Opportunities": list(opportunities_scores.values()),
-        "Threats": list(threats_scores.values())
-    })
+        # Aggregate scores into a DataFrame
+        scores_df = pd.DataFrame({
+            "Qualities": LEADERSHIP_QUALITIES.keys(),
+            "Strengths": list(strengths_scores.values()),
+            "Weaknesses": list(weaknesses_scores.values()),
+            "Opportunities": list(opportunities_scores.values()),
+            "Threats": list(threats_scores.values())
+        })
 
-    # Calculate average normalized scores for KP calculation
-    S_norm = expit(np.array(list(strengths_scores.values())) * w_S)
-    W_norm = expit(np.array(list(weaknesses_scores.values())) * w_W)
-    O_norm = expit(np.array(list(opportunities_scores.values())) * w_O)
-    T_norm = expit(np.array(list(threats_scores.values())) * w_T)
+        # Calculate average normalized scores for KP calculation
+        S_norm = expit(np.array(list(strengths_scores.values())) * w_S)
+        W_norm = expit(np.array(list(weaknesses_scores.values())) * w_W)
+        O_norm = expit(np.array(list(opportunities_scores.values())) * w_O)
+        T_norm = expit(np.array(list(threats_scores.values())) * w_T)
 
-    # Calculate entropy
-    H_S = entropy(S_norm, w_S)
-    H_W = entropy(W_norm, w_W)
-    H_O = entropy(O_norm, w_O)
-    H_T = entropy(T_norm, w_T)
+        # Calculate entropy
+        H_S = entropy(S_norm, w_S)
+        H_W = entropy(W_norm, w_W)
+        H_O = entropy(O_norm, w_O)
+        H_T = entropy(T_norm, w_T)
 
-    # Calculate KP score
-    kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
-    st.subheader("🏆 Leadership Viability Score")
-    st.write(f"### Your Viability Score: **{kp_score:.2f}**")
+        # Calculate KP score
+        kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
+        st.subheader("🏆 Leadership Viability Score")
+        st.write(f"### Your Viability Score: **{kp_score:.2f}**")
 
-    # Interpretation
-    st.subheader("📈 Interpretation of Your Score")
-    if kp_score > 200:
-        interpretation = "Outstanding potential for leadership."
-    elif kp_score > 100:
-        interpretation = "Suitable for leadership with some improvement areas."
-    elif kp_score > 50:
-        interpretation = "Moderate potential for leadership; requires development."
+        # Interpretation
+        st.subheader("📈 Interpretation of Your Score")
+        if kp_score > 200:
+            interpretation = "Outstanding potential for leadership."
+        elif kp_score > 100:
+            interpretation = "Suitable for leadership with some improvement areas."
+        elif kp_score > 50:
+            interpretation = "Moderate potential for leadership; requires development."
+        else:
+            interpretation = "Not recommended for leadership without major improvements."
+        st.write(f"**{interpretation}**")
+
+        # 5 Visualizations (Radar, Bar, Scatter, Surface, Heatmap)
+        # Radar Chart
+        fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
+        fig_radar.update_traces(fill='toself')
+        st.plotly_chart(fig_radar)
+
+        # Bar Chart
+        fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
+        st.plotly_chart(fig_bar)
+
+        # 3D Scatter Plot
+        fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
+        fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
+        st.plotly_chart(fig_scatter)
+
+        # Surface Plot
+        fig_surface = go.Figure(data=[go.Surface(z=D, x=list(scores_df["Qualities"]), y=list(scores_df["Qualities"]))])
+        fig_surface.update_layout(title="Surface Plot of Dynamic Amplification Matrix")
+        st.plotly_chart(fig_surface)
+
+        # Heatmap
+        fig_heatmap = px.imshow(D, title="Heatmap of SWOT Interaction Matrix")
+        st.plotly_chart(fig_heatmap)
     else:
-        interpretation = "Not recommended for leadership without major improvements."
-    st.write(f"**{interpretation}**")
-
-    # 5 Visualizations (Radar, Bar, Scatter, Surface, Heatmap)
-    # Radar Chart
-    fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
-    fig_radar.update_traces(fill='toself')
-    st.plotly_chart(fig_radar)
-
-    # Bar Chart
-    fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
-    st.plotly_chart(fig_bar)
-
-    # 3D Scatter Plot
-    fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
-    fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
-    st.plotly_chart(fig_scatter)
-
-    # Surface Plot
-    fig_surface = go.Figure(data=[go.Surface(z=D, x=list(scores_df["Qualities"]), y=list(scores_df["Qualities"]))])
-    fig_surface.update_layout(title="Surface Plot of Dynamic Amplification Matrix")
-    st.plotly_chart(fig_surface)
-
-    # Heatmap
-    fig_heatmap = px.imshow(D, title="Heatmap of SWOT Interaction Matrix")
-    st.plotly_chart(fig_heatmap)
-else:
-    st.write("Please enter text for at least one SWOT element.")
+        st.write("Please enter text for at least one SWOT element.")
