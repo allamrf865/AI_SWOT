@@ -5,6 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 import plotly.graph_objects as go
 import PyPDF2
+import pandas as pd
 
 # Function to generate a 3D radar chart using Plotly
 @st.cache_data
@@ -50,7 +51,66 @@ def extract_text_from_pdf(pdf_file):
         text += pdf_reader.getPage(page_num).extract_text()
     return text
 
-# Function to analyze SWOT and categorize scores
+# Function to assess leadership quality based on specific scores
+def assess_leadership_quality(scores):
+    leadership_traits = ["Leadership", "Decision Making", "Communication", "Strategic Thinking", "Empathy"]
+    leadership_score = sum(scores[trait]["score"] for trait in leadership_traits if trait in scores)
+    max_score = len(leadership_traits) * 10  # Max score is 10 per trait
+    leadership_quality_percentage = (leadership_score / max_score) * 100
+
+    # Determine the leadership quality level
+    if leadership_quality_percentage >= 80:
+        quality = "Excellent Leader"
+        color = "green"
+    elif leadership_quality_percentage >= 60:
+        quality = "Good Leader"
+        color = "blue"
+    elif leadership_quality_percentage >= 40:
+        quality = "Moderate Leader"
+        color = "orange"
+    else:
+        quality = "Needs Improvement"
+        color = "red"
+
+    return leadership_quality_percentage, quality, color
+
+# Enhanced 3D bar chart for leadership assessment
+def generate_3d_leadership_chart(scores):
+    categories = ["Leadership", "Decision Making", "Communication", "Strategic Thinking", "Empathy"]
+    values = [scores[trait]["score"] for trait in categories]
+
+    fig = go.Figure(data=[go.Bar3d(
+        x=categories,
+        y=values,
+        z=[0]*len(values),
+        dx=0.5,
+        dy=1,
+        dz=values,
+        marker=dict(color=values, colorscale='Viridis', showscale=True),
+    )])
+
+    fig.update_layout(
+        title="3D Leadership Quality Visualization",
+        scene=dict(
+            xaxis=dict(title="Leadership Attributes"),
+            yaxis=dict(title="Score"),
+            zaxis=dict(title="Depth"),
+            aspectmode="cube"
+        )
+    )
+    return fig
+
+# Explainable AI function - Displaying score breakdown
+def explain_score_breakdown(scores):
+    breakdown_df = pd.DataFrame(scores).T  # Convert scores dictionary to DataFrame
+    breakdown_df["Contribution (%)"] = (breakdown_df["score"] / breakdown_df["score"].sum()) * 100
+    breakdown_df = breakdown_df.sort_values(by="Contribution (%)", ascending=False)
+
+    st.write("### Score Contribution Breakdown")
+    st.write("This breakdown shows the relative contribution of each leadership trait to the overall score.")
+    st.dataframe(breakdown_df)
+
+# Analyze SWOT and categorize scores
 @st.cache_data
 def analyze_swot(strengths, weaknesses, opportunities, threats):
     scores = {
@@ -66,6 +126,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
         "Decision Making": 0
     }
 
+    # Scoring based on strengths
     if "leadership" in strengths.lower():
         scores["Leadership"] += 3
     if "creativity" in strengths.lower():
@@ -85,7 +146,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
     if "decision making" in strengths.lower():
         scores["Decision Making"] += 3
 
-    # Weaknesses that reduce scores
+    # Weaknesses reduce scores
     if "time management" in weaknesses.lower():
         scores["Adaptability"] -= 1
     if "communication" in weaknesses.lower():
@@ -93,7 +154,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
     if "confidence" in weaknesses.lower():
         scores["Leadership"] -= 2
 
-    # Opportunities that increase scores
+    # Opportunities boost scores
     if "networking" in opportunities.lower():
         scores["Communication"] += 2
     if "mentorship" in opportunities.lower():
@@ -101,7 +162,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
     if "skill development" in opportunities.lower():
         scores["Adaptability"] += 2
 
-    # Threats that reduce scores
+    # Threats reduce scores
     if "competition" in threats.lower():
         scores["Adaptability"] -= 1
     if "job insecurity" in threats.lower():
@@ -120,33 +181,8 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
 
     return categorized_scores
 
-# Display recommendations based on scores
-def display_recommendations(scores):
-    role_suggestions = {
-        "Leadership": ["Chief Executive Officer", "Director", "Operations Manager", "Human Resources Manager"],
-        "Creativity": ["Art Director", "Content Creator", "Product Designer", "Marketing Specialist"],
-        "Communication": ["Public Relations Specialist", "Sales Manager", "Customer Service Representative", "Event Planner"],
-        "Adaptability": ["Consultant", "Entrepreneur", "Field Agent", "Social Worker"],
-        "Problem-Solving": ["Engineer", "Detective", "Consultant", "Project Manager"],
-        "Analytical": ["Data Analyst", "Research Scientist", "Economist", "Financial Analyst"],
-        "Empathy": ["Psychologist", "Counselor", "Nurse", "Social Worker"],
-        "Strategic Thinking": ["Chief Strategy Officer", "Business Analyst", "Policy Advisor", "Urban Planner"],
-        "Technical Skills": ["Software Developer", "Network Engineer", "Data Scientist", "IT Specialist"],
-        "Decision Making": ["Judge", "Chief Operations Officer", "Surgeon", "Pilot"]
-    }
-    
-    for skill, data in scores.items():
-        st.write(f"### {skill} - Score: {data['score']} (Level: {data['level']})")
-        if data["level"] == "High":
-            roles = role_suggestions.get(skill, [])
-            st.success(f"Strong {skill}. Suitable roles include: {', '.join(roles)}.")
-        elif data["level"] == "Moderate":
-            st.info(f"{skill} is moderate. Consider strengthening through additional training.")
-        else:
-            st.warning(f"{skill} is currently low. Improvement is recommended.")
-
 # Streamlit app layout
-st.title("🌟 Enhanced SWOT Analysis with 3D Visualization 🌟")
+st.title("🌟 Enhanced SWOT Analysis with Advanced Leadership Assessment 🌟")
 st.write("**Upload your SWOT PDF or enter your SWOT details below to get insights and career recommendations.**")
 
 # File uploader for PDF or text input
@@ -167,11 +203,21 @@ if st.button("Analyze"):
     with st.spinner("Analyzing your SWOT..."):
         scores = analyze_swot(strengths, weaknesses, opportunities, threats)
         radar_fig = generate_3d_radar_chart(scores)
+        leadership_quality, leadership_category, category_color = assess_leadership_quality(scores)
+        leadership_fig = generate_3d_leadership_chart(scores)
 
     st.subheader("🌐 3D SWOT Analysis Visualization")
     st.plotly_chart(radar_fig, use_container_width=True)
 
-    st.subheader("🏅 Role-Based Recommendations")
-    display_recommendations(scores)
+    st.subheader("🏅 Leadership Quality Assessment")
+    st.write(f"### Leadership Quality Score: {leadership_quality:.2f}% - **{leadership_category}**")
+    st.progress(leadership_quality / 100)
+
+    st.subheader("📊 3D Leadership Attributes Visualization")
+    st.plotly_chart(leadership_fig, use_container_width=True)
+
+    # Explainable AI: Score Breakdown
+    st.subheader("📈 Explainable AI (XAI): Score Breakdown")
+    explain_score_breakdown(scores)
 
     st.success("Analysis complete! Rotate the 3D chart, view role suggestions, and explore insights.")
