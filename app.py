@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -73,16 +71,6 @@ def calculate_leadership_scores(swot_text, model, qualities, confidence):
         scores[quality] = similarity_score * 100 * (confidence / 10)  # Adjust by confidence level
     return scores
 
-# Menambahkan validasi awal untuk input kosong
-if not strengths_text and not weaknesses_text and not opportunities_text and not threats_text:
-    st.warning("Please enter text for at least one SWOT element.")
-else:
-    # Lanjutkan ke analisis hanya jika ada input yang valid
-    strengths_scores = calculate_leadership_scores(strengths_text, model, LEADERSHIP_QUALITIES) if strengths_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
-    weaknesses_scores = calculate_leadership_scores(weaknesses_text, model, LEADERSHIP_QUALITIES) if weaknesses_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
-    opportunities_scores = calculate_leadership_scores(opportunities_text, model, LEADERSHIP_QUALITIES) if opportunities_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
-    threats_scores = calculate_leadership_scores(threats_text, model, LEADERSHIP_QUALITIES) if threats_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
-
 # Streamlit app layout
 st.title("🌟 Advanced SWOT-Based Leadership Viability Assessment 🌟")
 st.write("**AI Created by Allam Rafi FKUI 2022**")
@@ -112,12 +100,16 @@ threats_entries = input_swot_category("Threats")
 
 # Process if user clicks "Analyze"
 if st.button("Analyze"):
+    # Combine text entries and calculate scores
     scores_dict = {}
     for category, entries, weights_key in [("Strengths", strengths_entries, "S"), ("Weaknesses", weaknesses_entries, "W"),
                                            ("Opportunities", opportunities_entries, "O"), ("Threats", threats_entries, "T")]:
-        combined_text = " ".join([entry[0] for entry in entries])
-        avg_confidence = np.mean([entry[1] for entry in entries])
-        scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
+        combined_text = " ".join([entry[0] for entry in entries if entry[0]])  # Only use non-empty entries
+        if combined_text:  # Only calculate if there is valid input
+            avg_confidence = np.mean([entry[1] for entry in entries])
+            scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
+        else:
+            scores_dict[category] = {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
 
     # Normalize scores and calculate entropies
     S_norm = normalize_scores(list(scores_dict["Strengths"].values()), weights["S"])
@@ -158,11 +150,11 @@ if st.button("Analyze"):
     st.plotly_chart(fig_radar)
 
     # Bar Chart
-    fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
+    fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", title="Bar Chart of Strengths")
     st.plotly_chart(fig_bar)
 
     # 3D Scatter Plot
-    fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
+    fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers')])
     fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
     st.plotly_chart(fig_scatter)
 
