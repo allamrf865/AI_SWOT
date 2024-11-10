@@ -4,7 +4,6 @@ import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 import plotly.graph_objects as go
-import PyPDF2
 import pandas as pd
 
 # Function to generate a 3D radar chart using Plotly
@@ -41,68 +40,6 @@ def generate_3d_radar_chart(scores):
     )
 
     return fig
-
-# Function to generate a 3D bar chart for detailed score distribution
-def generate_3d_bar_chart(scores):
-    categories = list(scores.keys())
-    values = [data['score'] for data in scores.values()]
-
-    fig = go.Figure(data=[go.Bar3d(
-        x=categories,
-        y=values,
-        z=[0]*len(values),
-        dx=0.5,
-        dy=1,
-        dz=values,
-        marker=dict(color=values, colorscale='Viridis', showscale=True),
-    )])
-
-    fig.update_layout(
-        title="3D Attribute Score Distribution",
-        scene=dict(
-            xaxis=dict(title="Attributes"),
-            yaxis=dict(title="Score"),
-            zaxis=dict(title="Depth"),
-            aspectmode="cube"
-        )
-    )
-    return fig
-
-# Function to generate a 3D scatter plot for attribute correlation
-def generate_3d_scatter_plot(scores):
-    categories = list(scores.keys())
-    values = [data['score'] for data in scores.values()]
-
-    fig = go.Figure(data=go.Scatter3d(
-        x=categories,
-        y=values,
-        z=np.random.normal(size=len(values)),  # Random z-axis for separation in visualization
-        mode='markers',
-        marker=dict(size=8, color=values, colorscale='Rainbow', opacity=0.8)
-    ))
-
-    fig.update_layout(
-        title="3D Attribute Correlation Plot",
-        scene=dict(
-            xaxis=dict(title="Attributes"),
-            yaxis=dict(title="Score"),
-            zaxis=dict(title="Random Depth for Visualization"),
-            aspectmode="cube"
-        )
-    )
-    return fig
-
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_file):
-    text = ""
-    try:
-        pdf_reader = PyPDF2.PdfFileReader(pdf_file)
-        for page_num in range(pdf_reader.getNumPages()):
-            text += pdf_reader.getPage(page_num).extract_text()
-    except Exception as e:
-        st.error("Error reading PDF file. Please check if the file is valid.")
-        return None
-    return text
 
 # Function to assess leadership quality based on specific scores
 def assess_leadership_quality(scores):
@@ -202,41 +139,23 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
 
 # Streamlit app layout
 st.title("🌟 Enhanced SWOT Analysis with Advanced Leadership Assessment 🌟")
-st.write("**Upload your SWOT PDF or enter your SWOT details below to get insights and career recommendations.**")
+st.write("**Enter your SWOT details below to get insights and career recommendations.**")
 
-# File uploader for PDF or text input
-uploaded_file = st.file_uploader("Upload a PDF SWOT file (or leave blank to type manually):", type="pdf")
-
-if uploaded_file is not None:
-    with st.spinner("Extracting text from PDF..."):
-        extracted_text = extract_text_from_pdf(uploaded_file)
-        if extracted_text:
-            strengths, weaknesses, opportunities, threats = extracted_text.split('\n')[:4]
-        else:
-            st.stop()  # Stop if PDF extraction fails
-else:
-    strengths = st.text_area("Enter your Strengths:", "")
-    weaknesses = st.text_area("Enter your Weaknesses:", "")
-    opportunities = st.text_area("Enter your Opportunities:", "")
-    threats = st.text_area("Enter your Threats:", "")
+# Input fields for manual SWOT text entry
+strengths = st.text_area("Enter your Strengths:", "")
+weaknesses = st.text_area("Enter your Weaknesses:", "")
+opportunities = st.text_area("Enter your Opportunities:", "")
+threats = st.text_area("Enter your Threats:", "")
 
 if st.button("Analyze"):
     with st.spinner("Analyzing your SWOT..."):
         scores = analyze_swot(strengths, weaknesses, opportunities, threats)
         radar_fig = generate_3d_radar_chart(scores)
-        bar_chart_fig = generate_3d_bar_chart(scores)
-        scatter_plot_fig = generate_3d_scatter_plot(scores)
         leadership_quality, leadership_category = assess_leadership_quality(scores)
         breakdown_df = explain_score_breakdown(scores)
 
     st.subheader("🌐 3D SWOT Analysis Visualization")
     st.plotly_chart(radar_fig, use_container_width=True)
-
-    st.subheader("📊 3D Attribute Score Distribution")
-    st.plotly_chart(bar_chart_fig, use_container_width=True)
-
-    st.subheader("💡 3D Attribute Correlation Plot")
-    st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
     st.subheader("🏅 Leadership Quality Assessment")
     st.write(f"### Leadership Quality Score: {leadership_quality:.2f}% - **{leadership_category}**")
@@ -247,4 +166,4 @@ if st.button("Analyze"):
     st.write("This breakdown shows the relative contribution of each leadership trait to the overall score.")
     st.dataframe(breakdown_df)
 
-    st.success("Analysis complete! Rotate the 3D charts, view score breakdown, and explore insights.")
+    st.success("Analysis complete! Rotate the 3D chart, view score breakdown, and explore insights.")
