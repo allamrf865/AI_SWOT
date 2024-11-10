@@ -1,8 +1,8 @@
 streamlit
-numpy
+sentence-transformers
 scipy
+numpy
 pandas
 plotly
-transformers
-sentence-transformers
 torch
+transformers
