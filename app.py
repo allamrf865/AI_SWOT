@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer, util
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Load the transformer model for semantic similarity
+# Load transformer model for semantic similarity
 @st.cache_resource
 def load_model():
     return SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
@@ -39,12 +39,14 @@ LEADERSHIP_QUALITIES = {
 }
 
 # Define weights (eigenvalues) for each SWOT element
-w_S = np.array([1.5, 1.4, 1.3, 1.2])
-w_W = np.array([1.2, 1.1, 1.3, 1.0])
-w_O = np.array([1.4, 1.3, 1.5, 1.2])
-w_T = np.array([1.1, 1.2, 1.0, 1.3])
+weights = {
+    "S": np.array([1.5, 1.4, 1.3, 1.2]),
+    "W": np.array([1.2, 1.1, 1.3, 1.0]),
+    "O": np.array([1.4, 1.3, 1.5, 1.2]),
+    "T": np.array([1.1, 1.2, 1.0, 1.3])
+}
 
-# Normalize scores safely
+# Normalize scores with a stable approach
 def normalize_scores(scores, weights):
     scores_array = np.array(scores)
     if len(scores_array) < len(weights):
@@ -53,22 +55,15 @@ def normalize_scores(scores, weights):
         scores_array = scores_array[:len(weights)]
     return expit(scores_array * weights)
 
-# Calculate entropy
-def entropy(values, weights):
-    p = (values * weights) / np.sum(values * weights)
-    return -np.sum(p * np.log(p + 1e-9))  # Avoid log(0)
-
-# Leadership viability calculation with safeguard against division by zero
+# Leadership viability calculation with simplified stable approach
 def calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T):
     epsilon = 1e-9  # Small value to prevent division by zero
-    numerator = S_norm * H_S * np.sum(w_S) + O_norm * H_O * np.sum(w_O)
-    denominator = W_norm * H_W * np.sum(w_W) + T_norm * H_T * np.sum(w_T) + epsilon
+    numerator = np.sum(S_norm) * H_S + np.sum(O_norm) * H_O
+    denominator = np.sum(W_norm) * H_W + np.sum(T_norm) * H_T + epsilon
+    kp_score = np.log(numerator / denominator + epsilon)
+    return kp_score
 
-    interaction_sum = np.dot(S_norm, O_norm)  # Simplified interaction
-    kp_score = np.log(numerator / denominator) + interaction_sum
-    return float(kp_score)  # Ensure kp_score is a float
-
-# Calculate semantic similarity scores
+# Calculate semantic similarity scores with confidence adjustment
 def calculate_leadership_scores(swot_text, model, qualities, confidence):
     scores = {}
     for quality, description in qualities.items():
@@ -108,23 +103,21 @@ threats_entries = input_swot_category("Threats")
 # Process if user clicks "Analyze"
 if st.button("Analyze"):
     scores_dict = {}
-    for category, entries, weights in [("Strengths", strengths_entries, w_S), ("Weaknesses", weaknesses_entries, w_W),
-                                       ("Opportunities", opportunities_entries, w_O), ("Threats", threats_entries, w_T)]:
+    for category, entries, weights_key in [("Strengths", strengths_entries, "S"), ("Weaknesses", weaknesses_entries, "W"),
+                                           ("Opportunities", opportunities_entries, "O"), ("Threats", threats_entries, "T")]:
         combined_text = " ".join([entry[0] for entry in entries])
         avg_confidence = np.mean([entry[1] for entry in entries])
         scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
 
     # Normalize scores and calculate entropies
-    S_norm = normalize_scores(list(scores_dict["Strengths"].values()), w_S)
-    W_norm = normalize_scores(list(scores_dict["Weaknesses"].values()), w_W)
-    O_norm = normalize_scores(list(scores_dict["Opportunities"].values()), w_O)
-    T_norm = normalize_scores(list(scores_dict["Threats"].values()), w_T)
+    S_norm = normalize_scores(list(scores_dict["Strengths"].values()), weights["S"])
+    W_norm = normalize_scores(list(scores_dict["Weaknesses"].values()), weights["W"])
+    O_norm = normalize_scores(list(scores_dict["Opportunities"].values()), weights["O"])
+    T_norm = normalize_scores(list(scores_dict["Threats"].values()), weights["T"])
 
-    H_S = entropy(S_norm, w_S)
-    H_W = entropy(W_norm, w_W)
-    H_O = entropy(O_norm, w_O)
-    H_T = entropy(T_norm, w_T)
+    H_S, H_W, H_O, H_T = np.mean(S_norm), np.mean(W_norm), np.mean(O_norm), np.mean(T_norm)
 
+    # Calculate KP score
     kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
     st.subheader("🏆 Leadership Viability Score")
     st.write(f"Your Viability Score: **{kp_score:.2f}**")
@@ -140,7 +133,7 @@ if st.button("Analyze"):
         interpretation = "Not recommended for leadership without major improvements."
     st.write(f"**{interpretation}**")
 
-    # DataFrame for visualizations
+    # Visualizations
     scores_df = pd.DataFrame({
         "Qualities": list(LEADERSHIP_QUALITIES.keys()),
         "Strengths": list(scores_dict["Strengths"].values()),
