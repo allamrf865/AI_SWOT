@@ -58,16 +58,14 @@ def entropy(values, weights):
     p = (values * weights) / np.sum(values * weights)
     return -np.sum(p * np.log(p + 1e-9))  # Avoid log(0)
 
-# Leadership viability calculation
+# Leadership viability calculation with safeguard against division by zero
 def calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T):
+    epsilon = 1e-9  # Small value to prevent division by zero
     numerator = S_norm * H_S * np.sum(w_S) + O_norm * H_O * np.sum(w_O)
-    denominator = W_norm * H_W * np.sum(w_W) + T_norm * H_T * np.sum(w_T)
+    denominator = W_norm * H_W * np.sum(w_W) + T_norm * H_T * np.sum(w_T) + epsilon
+
     interaction_sum = np.dot(S_norm, O_norm)  # Simplified interaction
-
-    if denominator == 0:
-        return 0
-
-    kp_score = np.log(numerator / (denominator + 1e-9)) + interaction_sum
+    kp_score = np.log(numerator / denominator) + interaction_sum
     return float(kp_score)  # Ensure kp_score is a float
 
 # Calculate semantic similarity scores
@@ -88,21 +86,26 @@ st.markdown("Analyze your suitability for leadership with NLP and mathematical m
 # Input fields for SWOT descriptions and confidence levels
 st.subheader("📝 Enter Your SWOT Descriptions with Confidence Levels (1-10)")
 
+# Input function for each category with min/max check
 def input_swot_category(category_name):
     st.write(f"### {category_name}")
     entries = []
-    num_entries = st.number_input(f"How many entries for {category_name}?", min_value=1, max_value=5, value=2)
+    min_entries, max_entries = 3, 5
+    num_entries = st.number_input(f"Number of entries for {category_name} (min {min_entries}, max {max_entries})", 
+                                  min_value=min_entries, max_value=max_entries, value=min_entries)
     for i in range(num_entries):
-        text = st.text_area(f"Describe {category_name} aspect #{i + 1}", key=f"{category_name}_text_{i}")
+        text = st.text_area(f"{category_name} aspect #{i + 1}", key=f"{category_name}_text_{i}")
         confidence = st.slider(f"Confidence level for {category_name} aspect #{i + 1}", 1, 10, 5, key=f"{category_name}_conf_{i}")
         entries.append((text, confidence))
     return entries
 
+# Getting entries for each SWOT category
 strengths_entries = input_swot_category("Strengths")
 weaknesses_entries = input_swot_category("Weaknesses")
 opportunities_entries = input_swot_category("Opportunities")
 threats_entries = input_swot_category("Threats")
 
+# Process if user clicks "Analyze"
 if st.button("Analyze"):
     scores_dict = {}
     for category, entries, weights in [("Strengths", strengths_entries, w_S), ("Weaknesses", weaknesses_entries, w_W),
@@ -137,6 +140,7 @@ if st.button("Analyze"):
         interpretation = "Not recommended for leadership without major improvements."
     st.write(f"**{interpretation}**")
 
+    # DataFrame for visualizations
     scores_df = pd.DataFrame({
         "Qualities": list(LEADERSHIP_QUALITIES.keys()),
         "Strengths": list(scores_dict["Strengths"].values()),
@@ -145,20 +149,25 @@ if st.button("Analyze"):
         "Threats": list(scores_dict["Threats"].values())
     })
 
+    # Radar Chart
     fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
     fig_radar.update_traces(fill='toself')
     st.plotly_chart(fig_radar)
 
+    # Bar Chart
     fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
     st.plotly_chart(fig_bar)
 
+    # 3D Scatter Plot
     fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
     fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
     st.plotly_chart(fig_scatter)
 
+    # Surface Plot
     fig_surface = go.Figure(data=[go.Surface(z=scores_df.values[:, 1:], x=scores_df["Qualities"], y=scores_df.columns[1:])])
     fig_surface.update_layout(title="Surface Plot of SWOT Interaction")
     st.plotly_chart(fig_surface)
 
+    # Heatmap
     fig_heatmap = px.imshow(scores_df.values[:, 1:], title="Heatmap of SWOT Impact")
     st.plotly_chart(fig_heatmap)
