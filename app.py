@@ -64,7 +64,7 @@ def calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T):
     denominator = W_norm * H_W * w_W.sum() + T_norm * H_T * w_T.sum()
     interaction_sum = np.dot(S_norm, O_norm)  # Simplified interaction
     kp_score = np.log(numerator / (denominator + 1e-9)) + interaction_sum
-    return kp_score
+    return float(kp_score)  # Ensure kp_score is a float
 
 # Calculate semantic similarity scores
 def calculate_leadership_scores(swot_text, model, qualities):
@@ -111,7 +111,7 @@ if st.button("Analyze"):
         # Calculate KP score
         kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
         st.subheader("🏆 Leadership Viability Score")
-        st.write(f"### Your Viability Score: **{kp_score:.2f}**")
+        st.write(f"Your Viability Score: **{kp_score:.2f}**")
 
         # Interpretation
         st.subheader("📈 Interpretation of Your Score")
@@ -145,11 +145,11 @@ if st.button("Analyze"):
         fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
         st.plotly_chart(fig_scatter)
 
-        fig_surface = go.Figure(data=[go.Surface(z=D, x=list(scores_df["Qualities"]), y=list(scores_df["Qualities"]))])
+        fig_surface = go.Figure(data=[go.Surface(z=np.outer(S_norm, O_norm), x=list(scores_df["Qualities"]), y=list(scores_df["Qualities"]))])
         fig_surface.update_layout(title="Surface Plot of Dynamic Amplification Matrix")
         st.plotly_chart(fig_surface)
 
-        fig_heatmap = px.imshow(D, title="Heatmap of SWOT Interaction Matrix")
+        fig_heatmap = px.imshow(np.outer(S_norm, O_norm), title="Heatmap of SWOT Interaction Matrix")
         st.plotly_chart(fig_heatmap)
     else:
         st.write("Please enter text for at least one SWOT element.")
