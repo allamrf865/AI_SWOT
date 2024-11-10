@@ -4,7 +4,6 @@ import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 import plotly.graph_objects as go
-import io
 import PyPDF2
 
 # Function to generate a 3D radar chart using Plotly
@@ -51,7 +50,7 @@ def extract_text_from_pdf(pdf_file):
         text += pdf_reader.getPage(page_num).extract_text()
     return text
 
-# Function to analyze SWOT
+# Function to analyze SWOT and categorize scores
 @st.cache_data
 def analyze_swot(strengths, weaknesses, opportunities, threats):
     scores = {
@@ -79,7 +78,14 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
         scores["Problem-Solving"] += 3
     if "analytical" in strengths.lower():
         scores["Analytical"] += 3
+    if "empathy" in strengths.lower():
+        scores["Empathy"] += 3
+    if "strategic thinking" in strengths.lower():
+        scores["Strategic Thinking"] += 3
+    if "decision making" in strengths.lower():
+        scores["Decision Making"] += 3
 
+    # Weaknesses that reduce scores
     if "time management" in weaknesses.lower():
         scores["Adaptability"] -= 1
     if "communication" in weaknesses.lower():
@@ -87,6 +93,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
     if "confidence" in weaknesses.lower():
         scores["Leadership"] -= 2
 
+    # Opportunities that increase scores
     if "networking" in opportunities.lower():
         scores["Communication"] += 2
     if "mentorship" in opportunities.lower():
@@ -94,11 +101,13 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
     if "skill development" in opportunities.lower():
         scores["Adaptability"] += 2
 
+    # Threats that reduce scores
     if "competition" in threats.lower():
         scores["Adaptability"] -= 1
     if "job insecurity" in threats.lower():
         scores["Adaptability"] -= 1
 
+    # Scale scores to a 1-10 range
     scaler = MinMaxScaler(feature_range=(1, 10))
     score_values = list(scores.values())
     scaled_scores = scaler.fit_transform(np.array(score_values).reshape(-1, 1)).flatten()
@@ -111,7 +120,7 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
 
     return categorized_scores
 
-# Display recommendations based on scores for a wide range of roles
+# Display recommendations based on scores
 def display_recommendations(scores):
     role_suggestions = {
         "Leadership": ["Chief Executive Officer", "Director", "Operations Manager", "Human Resources Manager"],
