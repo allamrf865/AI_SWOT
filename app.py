@@ -47,6 +47,10 @@ w_T = np.array([1.1, 1.2, 1.0, 1.3])
 # Normalize scores safely
 def normalize_scores(scores, weights):
     scores_array = np.array(scores)
+    if len(scores_array) < len(weights):
+        scores_array = np.pad(scores_array, (0, len(weights) - len(scores_array)), 'constant')
+    elif len(scores_array) > len(weights):
+        scores_array = scores_array[:len(weights)]
     return expit(scores_array * weights)
 
 # Calculate entropy
