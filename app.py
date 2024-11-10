@@ -65,10 +65,13 @@ def calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T):
 def calculate_leadership_scores(swot_text, model, qualities, confidence):
     scores = {}
     for quality, description in qualities.items():
-        quality_embedding = model.encode(description, convert_to_tensor=True)
-        swot_embedding = model.encode(swot_text, convert_to_tensor=True)
-        similarity_score = util.pytorch_cos_sim(swot_embedding, quality_embedding).item()
-        scores[quality] = similarity_score * 100 * (confidence / 10)  # Adjust by confidence level
+        if swot_text.strip():  # Only calculate if there's valid input
+            quality_embedding = model.encode(description, convert_to_tensor=True)
+            swot_embedding = model.encode(swot_text, convert_to_tensor=True)
+            similarity_score = util.pytorch_cos_sim(swot_embedding, quality_embedding).item()
+            scores[quality] = similarity_score * 100 * (confidence / 10) if similarity_score > 0 else 0
+        else:
+            scores[quality] = 0
     return scores
 
 # Streamlit app layout
@@ -102,14 +105,22 @@ threats_entries = input_swot_category("Threats")
 if st.button("Analyze"):
     # Combine text entries and calculate scores
     scores_dict = {}
-    for category, entries, weights_key in [("Strengths", strengths_entries, "S"), ("Weaknesses", weaknesses_entries, "W"),
-                                           ("Opportunities", opportunities_entries, "O"), ("Threats", threats_entries, "T")]:
+    impact_factors = {}
+    for category, entries, weights_key in [("Strengths", strengths_entries, "S"), 
+                                           ("Weaknesses", weaknesses_entries, "W"),
+                                           ("Opportunities", opportunities_entries, "O"), 
+                                           ("Threats", threats_entries, "T")]:
         combined_text = " ".join([entry[0] for entry in entries if entry[0]])  # Only use non-empty entries
-        if combined_text:  # Only calculate if there is valid input
-            avg_confidence = np.mean([entry[1] for entry in entries])
-            scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
-        else:
-            scores_dict[category] = {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
+        avg_confidence = np.mean([entry[1] for entry in entries]) if entries else 5  # Default confidence level if no input
+        scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
+        
+        # Calculate Impact Factor for each entry
+        category_impact = []
+        for text, confidence in entries:
+            if text.strip():
+                impact_score = calculate_leadership_scores(text, model, LEADERSHIP_QUALITIES, confidence)
+                category_impact.append(impact_score)
+        impact_factors[category] = category_impact
 
     # Normalize scores and calculate entropies
     S_norm = normalize_scores(list(scores_dict["Strengths"].values()), weights["S"])
@@ -135,34 +146,9 @@ if st.button("Analyze"):
         interpretation = "Not recommended for leadership without major improvements."
     st.write(f"**{interpretation}**")
 
-    # Visualizations
-    scores_df = pd.DataFrame({
-        "Qualities": list(LEADERSHIP_QUALITIES.keys()),
-        "Strengths": list(scores_dict["Strengths"].values()),
-        "Weaknesses": list(scores_dict["Weaknesses"].values()),
-        "Opportunities": list(scores_dict["Opportunities"].values()),
-        "Threats": list(scores_dict["Threats"].values())
-    })
-
-    # Radar Chart
-    fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
-    fig_radar.update_traces(fill='toself')
-    st.plotly_chart(fig_radar)
-
-    # Bar Chart
-    fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", title="Bar Chart of Strengths")
-    st.plotly_chart(fig_bar)
-
-    # 3D Scatter Plot
-    fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers')])
-    fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
-    st.plotly_chart(fig_scatter)
-
-    # Surface Plot
-    fig_surface = go.Figure(data=[go.Surface(z=scores_df.values[:, 1:], x=scores_df["Qualities"], y=scores_df.columns[1:])])
-    fig_surface.update_layout(title="Surface Plot of SWOT Interaction")
-    st.plotly_chart(fig_surface)
-
-    # Heatmap
-    fig_heatmap = px.imshow(scores_df.values[:, 1:], title="Heatmap of SWOT Impact")
-    st.plotly_chart(fig_heatmap)
+    # Display Impact Factors
+    st.subheader("📊 Impact Factor for Each Entry")
+    for category, impacts in impact_factors.items():
+        st.write(f"### {category}")
+        for i, impact in enumerate(impacts):
+            st.write(f"Entry #{i + 1}: {impact}")
