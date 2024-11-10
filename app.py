@@ -146,9 +146,57 @@ if st.button("Analyze"):
         interpretation = "Not recommended for leadership without major improvements."
     st.write(f"**{interpretation}**")
 
-    # Display Impact Factors
-    st.subheader("📊 Impact Factor for Each Entry")
+    # Visualization Code
+    st.subheader("🔍 Visual Analysis of SWOT Impact on Leadership Qualities")
+
+    # Convert scores to DataFrame for visualizations
+    scores_df = pd.DataFrame({
+        "Qualities": list(LEADERSHIP_QUALITIES.keys()),
+        "Strengths": list(scores_dict["Strengths"].values()),
+        "Weaknesses": list(scores_dict["Weaknesses"].values()),
+        "Opportunities": list(scores_dict["Opportunities"].values()),
+        "Threats": list(scores_dict["Threats"].values())
+    })
+
+    # Radar Charts for Each SWOT Category
+    for category in ["Strengths", "Weaknesses", "Opportunities", "Threats"]:
+        fig = px.line_polar(scores_df, r=category, theta="Qualities", line_close=True, title=f"Radar Chart of {category}")
+        fig.update_traces(fill='toself')
+        st.plotly_chart(fig)
+
+    # Bar Charts for Each SWOT Category
+    for category in ["Strengths", "Weaknesses", "Opportunities", "Threats"]:
+        fig = px.bar(scores_df, x="Qualities", y=category, title=f"Bar Chart of {category}")
+        st.plotly_chart(fig)
+
+    # 3D Scatter Plot
+    fig_scatter = go.Figure(data=[go.Scatter3d(
+        x=scores_df["Strengths"], y=scores_df["Weaknesses"], z=scores_df["Opportunities"],
+        mode='markers', marker=dict(size=5)
+    )])
+    fig_scatter.update_layout(title="3D Scatter Plot of Strengths, Weaknesses, and Opportunities")
+    st.plotly_chart(fig_scatter)
+
+    # 3D Surface Plot
+    fig_surface = go.Figure(data=[go.Surface(z=scores_df.values[:, 1:], x=scores_df["Qualities"], y=scores_df.columns[1:])])
+    fig_surface.update_layout(title="3D Surface Plot of SWOT Interaction")
+    st.plotly_chart(fig_surface)
+
+    # Heatmap
+    fig_heatmap = px.imshow(scores_df.values[:, 1:], title="Heatmap of SWOT Scores")
+    st.plotly_chart(fig_heatmap)
+
+    # Pie Charts for Impact Factors
     for category, impacts in impact_factors.items():
-        st.write(f"### {category}")
-        for i, impact in enumerate(impacts):
-            st.write(f"Entry #{i + 1}: {impact}")
+        if impacts:
+            for i, impact_score in enumerate(impacts):
+                impact_df = pd.DataFrame(impact_score.items(), columns=["Quality", "Impact"])
+                fig_pie = px.pie(impact_df, values="Impact", names="Quality", title=f"{category} Impact Factor - Entry #{i + 1}")
+                st.plotly_chart(fig_pie)
+
+    # Line Chart Comparing Average Scores
+    avg_scores = scores_df[["Strengths", "Weaknesses", "Opportunities", "Threats"]].mean()
+    fig_line = px.line(x=avg_scores.index, y=avg_scores.values, markers=True, title="Average Score Comparison Across Categories")
+    fig_line.update_xaxes(title="SWOT Category")
+    fig_line.update_yaxes(title="Average Score")
+    st.plotly_chart(fig_line)
