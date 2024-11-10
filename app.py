@@ -73,6 +73,16 @@ def calculate_leadership_scores(swot_text, model, qualities, confidence):
         scores[quality] = similarity_score * 100 * (confidence / 10)  # Adjust by confidence level
     return scores
 
+# Menambahkan validasi awal untuk input kosong
+if not strengths_text and not weaknesses_text and not opportunities_text and not threats_text:
+    st.warning("Please enter text for at least one SWOT element.")
+else:
+    # Lanjutkan ke analisis hanya jika ada input yang valid
+    strengths_scores = calculate_leadership_scores(strengths_text, model, LEADERSHIP_QUALITIES) if strengths_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
+    weaknesses_scores = calculate_leadership_scores(weaknesses_text, model, LEADERSHIP_QUALITIES) if weaknesses_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
+    opportunities_scores = calculate_leadership_scores(opportunities_text, model, LEADERSHIP_QUALITIES) if opportunities_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
+    threats_scores = calculate_leadership_scores(threats_text, model, LEADERSHIP_QUALITIES) if threats_text else {key: 0 for key in LEADERSHIP_QUALITIES.keys()}
+
 # Streamlit app layout
 st.title("🌟 Advanced SWOT-Based Leadership Viability Assessment 🌟")
 st.write("**AI Created by Allam Rafi FKUI 2022**")
