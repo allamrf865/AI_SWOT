@@ -8,7 +8,6 @@ import PyPDF2
 import pandas as pd
 
 # Function to generate a 3D radar chart using Plotly
-@st.cache_data
 def generate_3d_radar_chart(scores):
     categories = list(scores.keys())
     values = [data['score'] for data in scores.values()]
@@ -43,41 +42,10 @@ def generate_3d_radar_chart(scores):
 
     return fig
 
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_file):
-    pdf_reader = PyPDF2.PdfFileReader(pdf_file)
-    text = ""
-    for page_num in range(pdf_reader.getNumPages()):
-        text += pdf_reader.getPage(page_num).extract_text()
-    return text
-
-# Function to assess leadership quality based on specific scores
-def assess_leadership_quality(scores):
-    leadership_traits = ["Leadership", "Decision Making", "Communication", "Strategic Thinking", "Empathy"]
-    leadership_score = sum(scores[trait]["score"] for trait in leadership_traits if trait in scores)
-    max_score = len(leadership_traits) * 10  # Max score is 10 per trait
-    leadership_quality_percentage = (leadership_score / max_score) * 100
-
-    # Determine the leadership quality level
-    if leadership_quality_percentage >= 80:
-        quality = "Excellent Leader"
-        color = "green"
-    elif leadership_quality_percentage >= 60:
-        quality = "Good Leader"
-        color = "blue"
-    elif leadership_quality_percentage >= 40:
-        quality = "Moderate Leader"
-        color = "orange"
-    else:
-        quality = "Needs Improvement"
-        color = "red"
-
-    return leadership_quality_percentage, quality, color
-
-# Enhanced 3D bar chart for leadership assessment
-def generate_3d_leadership_chart(scores):
-    categories = ["Leadership", "Decision Making", "Communication", "Strategic Thinking", "Empathy"]
-    values = [scores[trait]["score"] for trait in categories]
+# Function to generate a 3D bar chart for detailed score distribution
+def generate_3d_bar_chart(scores):
+    categories = list(scores.keys())
+    values = [data['score'] for data in scores.values()]
 
     fig = go.Figure(data=[go.Bar3d(
         x=categories,
@@ -90,9 +58,9 @@ def generate_3d_leadership_chart(scores):
     )])
 
     fig.update_layout(
-        title="3D Leadership Quality Visualization",
+        title="3D Attribute Score Distribution",
         scene=dict(
-            xaxis=dict(title="Leadership Attributes"),
+            xaxis=dict(title="Attributes"),
             yaxis=dict(title="Score"),
             zaxis=dict(title="Depth"),
             aspectmode="cube"
@@ -100,18 +68,69 @@ def generate_3d_leadership_chart(scores):
     )
     return fig
 
-# Explainable AI function - Displaying score breakdown
+# Function to generate a 3D scatter plot for attribute correlation
+def generate_3d_scatter_plot(scores):
+    categories = list(scores.keys())
+    values = [data['score'] for data in scores.values()]
+
+    fig = go.Figure(data=go.Scatter3d(
+        x=categories,
+        y=values,
+        z=np.random.normal(size=len(values)),  # Random z-axis for separation in visualization
+        mode='markers',
+        marker=dict(size=8, color=values, colorscale='Rainbow', opacity=0.8)
+    ))
+
+    fig.update_layout(
+        title="3D Attribute Correlation Plot",
+        scene=dict(
+            xaxis=dict(title="Attributes"),
+            yaxis=dict(title="Score"),
+            zaxis=dict(title="Random Depth for Visualization"),
+            aspectmode="cube"
+        )
+    )
+    return fig
+
+# Function to extract text from PDF
+def extract_text_from_pdf(pdf_file):
+    text = ""
+    try:
+        pdf_reader = PyPDF2.PdfFileReader(pdf_file)
+        for page_num in range(pdf_reader.getNumPages()):
+            text += pdf_reader.getPage(page_num).extract_text()
+    except Exception as e:
+        st.error("Error reading PDF file. Please check if the file is valid.")
+        return None
+    return text
+
+# Function to assess leadership quality based on specific scores
+def assess_leadership_quality(scores):
+    leadership_traits = ["Leadership", "Decision Making", "Communication", "Strategic Thinking", "Empathy"]
+    leadership_score = sum(scores[trait]["score"] for trait in leadership_traits if trait in scores)
+    max_score = len(leadership_traits) * 10  # Max score is 10 per trait
+    leadership_quality_percentage = (leadership_score / max_score) * 100
+
+    # Determine the leadership quality level
+    if leadership_quality_percentage >= 80:
+        quality = "Excellent Leader"
+    elif leadership_quality_percentage >= 60:
+        quality = "Good Leader"
+    elif leadership_quality_percentage >= 40:
+        quality = "Moderate Leader"
+    else:
+        quality = "Needs Improvement"
+
+    return leadership_quality_percentage, quality
+
+# Function to generate score breakdown for XAI
 def explain_score_breakdown(scores):
     breakdown_df = pd.DataFrame(scores).T  # Convert scores dictionary to DataFrame
     breakdown_df["Contribution (%)"] = (breakdown_df["score"] / breakdown_df["score"].sum()) * 100
     breakdown_df = breakdown_df.sort_values(by="Contribution (%)", ascending=False)
-
-    st.write("### Score Contribution Breakdown")
-    st.write("This breakdown shows the relative contribution of each leadership trait to the overall score.")
-    st.dataframe(breakdown_df)
+    return breakdown_df
 
 # Analyze SWOT and categorize scores
-@st.cache_data
 def analyze_swot(strengths, weaknesses, opportunities, threats):
     scores = {
         "Leadership": 0,
@@ -191,8 +210,10 @@ uploaded_file = st.file_uploader("Upload a PDF SWOT file (or leave blank to type
 if uploaded_file is not None:
     with st.spinner("Extracting text from PDF..."):
         extracted_text = extract_text_from_pdf(uploaded_file)
-        st.write("Extracted Text:", extracted_text)
-        strengths, weaknesses, opportunities, threats = extracted_text.split('\n')[:4]  # Assumes line-per-SWOT format
+        if extracted_text:
+            strengths, weaknesses, opportunities, threats = extracted_text.split('\n')[:4]
+        else:
+            st.stop()  # Stop if PDF extraction fails
 else:
     strengths = st.text_area("Enter your Strengths:", "")
     weaknesses = st.text_area("Enter your Weaknesses:", "")
@@ -203,21 +224,27 @@ if st.button("Analyze"):
     with st.spinner("Analyzing your SWOT..."):
         scores = analyze_swot(strengths, weaknesses, opportunities, threats)
         radar_fig = generate_3d_radar_chart(scores)
-        leadership_quality, leadership_category, category_color = assess_leadership_quality(scores)
-        leadership_fig = generate_3d_leadership_chart(scores)
+        bar_chart_fig = generate_3d_bar_chart(scores)
+        scatter_plot_fig = generate_3d_scatter_plot(scores)
+        leadership_quality, leadership_category = assess_leadership_quality(scores)
+        breakdown_df = explain_score_breakdown(scores)
 
     st.subheader("🌐 3D SWOT Analysis Visualization")
     st.plotly_chart(radar_fig, use_container_width=True)
+
+    st.subheader("📊 3D Attribute Score Distribution")
+    st.plotly_chart(bar_chart_fig, use_container_width=True)
+
+    st.subheader("💡 3D Attribute Correlation Plot")
+    st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
     st.subheader("🏅 Leadership Quality Assessment")
     st.write(f"### Leadership Quality Score: {leadership_quality:.2f}% - **{leadership_category}**")
     st.progress(leadership_quality / 100)
 
-    st.subheader("📊 3D Leadership Attributes Visualization")
-    st.plotly_chart(leadership_fig, use_container_width=True)
-
     # Explainable AI: Score Breakdown
     st.subheader("📈 Explainable AI (XAI): Score Breakdown")
-    explain_score_breakdown(scores)
+    st.write("This breakdown shows the relative contribution of each leadership trait to the overall score.")
+    st.dataframe(breakdown_df)
 
-    st.success("Analysis complete! Rotate the 3D chart, view role suggestions, and explore insights.")
+    st.success("Analysis complete! Rotate the 3D charts, view score breakdown, and explore insights.")
