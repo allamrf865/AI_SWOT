@@ -2,11 +2,11 @@
 
 import streamlit as st
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
 from scipy.special import expit  # Sigmoid function
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from collections import defaultdict
 
 # Define the dynamic amplification matrix D
 D = np.array([
@@ -22,30 +22,38 @@ w_W = np.array([1.2, 1.1, 1.3, 1.0])
 w_O = np.array([1.4, 1.3, 1.5, 1.2])
 w_T = np.array([1.1, 1.2, 1.0, 1.3])
 
-# Define keywords for each variable
+# Define keywords and impact factors for each SWOT category
 KEYWORDS = {
     "Leadership": ["leadership", "kepemimpinan"],
     "Influence": ["influence", "pengaruh"],
-    "Vision": ["vision", "visi"],
+    "Vision": ["vision", "visi", "pandangan jauh ke depan"],
     "Communication": ["communication", "komunikasi"],
-    "Empathy": ["empathy", "empati"],
-    "Teamwork": ["teamwork", "kerja sama"],
-    "Conflict Resolution": ["conflict resolution", "resolusi konflik"],
-    "Strategic Thinking": ["strategic thinking", "berpikir strategis"],
+    "Empathy": ["empathy", "empati", "peduli"],
+    "Teamwork": ["teamwork", "kerja sama", "kolaborasi"],
+    "Conflict Resolution": ["conflict resolution", "resolusi konflik", "penyelesaian konflik"],
+    "Strategic Thinking": ["strategic thinking", "berpikir strategis", "strategi"],
     "Problem-Solving": ["problem-solving", "pemecahan masalah"],
     "Decision-Making": ["decision-making", "pengambilan keputusan"],
     "Risk Management": ["risk management", "manajemen risiko"],
     "Goal Orientation": ["goal orientation", "orientasi tujuan"],
-    "Time Management": ["time management", "manajemen waktu"],
+    "Time Management": ["time management", "manajemen waktu", "pengaturan waktu"],
     "Accountability": ["accountability", "tanggung jawab"],
     "Resource Management": ["resource management", "manajemen sumber daya"],
-    "Integrity": ["integrity", "integritas"],
-    "Resilience": ["resilience", "ketahanan"],
-    "Adaptability": ["adaptability", "adaptasi"],
-    "Confidence": ["confidence", "kepercayaan diri"]
+    "Integrity": ["integrity", "integritas", "kejujuran"],
+    "Resilience": ["resilience", "ketahanan", "daya tahan"],
+    "Adaptability": ["adaptability", "adaptasi", "fleksibilitas"],
+    "Confidence": ["confidence", "kepercayaan diri", "percaya diri"]
 }
 
-# Calculate entropy for each element
+# Function to analyze text input for each SWOT category and assign a score
+def analyze_text(input_text, keywords):
+    score = 0
+    input_text = input_text.lower()
+    for keyword in keywords:
+        score += input_text.count(keyword)
+    return score
+
+# Function to calculate entropy for each element
 def entropy(values, weights):
     p = (values * weights) / np.sum(values * weights)
     return -np.sum(p * np.log(p + 1e-9))  # Adding a small value to avoid log(0)
@@ -69,125 +77,85 @@ st.title("🌟 Comprehensive SWOT-Based Leadership Viability Assessment 🌟")
 st.write("**AI Created by Allam Rafi FKUI 2022**")
 st.markdown("Analyze your suitability for leadership based on a comprehensive SWOT evaluation.")
 
-# Input fields for SWOT values
-st.subheader("📝 Input Your SWOT Values")
-st.write("Enter values for each sub-factor from 1 to 10.")
-S = np.array([st.slider(f"Strength {i+1}", 1, 10, 5) for i in range(4)])
-W = np.array([st.slider(f"Weakness {i+1}", 1, 10, 5) for i in range(4)])
-O = np.array([st.slider(f"Opportunity {i+1}", 1, 10, 5) for i in range(4)])
-T = np.array([st.slider(f"Threat {i+1}", 1, 10, 5) for i in range(4)])
+# Dynamic input for SWOT texts
+st.subheader("📝 Enter Your SWOT Descriptions")
+strengths_text = st.text_area("Enter your Strengths", placeholder="Describe your strengths, e.g., 'I am a natural leader who is good at communication.'")
+weaknesses_text = st.text_area("Enter your Weaknesses", placeholder="Describe your weaknesses.")
+opportunities_text = st.text_area("Enter your Opportunities", placeholder="Describe your opportunities.")
+threats_text = st.text_area("Enter your Threats", placeholder="Describe your threats.")
 
-# Step-by-Step Calculation
-# Step 1: Entropy Calculation
-H_S = entropy(S, w_S)
-H_W = entropy(W, w_W)
-H_O = entropy(O, w_O)
-H_T = entropy(T, w_T)
+# Check if texts are provided
+if strengths_text or weaknesses_text or opportunities_text or threats_text:
+    # Step-by-Step Calculation
+    # Analyze each SWOT text input for keywords and calculate raw scores
+    S = np.array([analyze_text(strengths_text, KEYWORDS[key]) for key in ["Leadership", "Influence", "Vision", "Communication"]])
+    W = np.array([analyze_text(weaknesses_text, KEYWORDS[key]) for key in ["Integrity", "Resilience", "Confidence", "Adaptability"]])
+    O = np.array([analyze_text(opportunities_text, KEYWORDS[key]) for key in ["Strategic Thinking", "Problem-Solving", "Decision-Making", "Risk Management"]])
+    T = np.array([analyze_text(threats_text, KEYWORDS[key]) for key in ["Teamwork", "Conflict Resolution", "Goal Orientation", "Resource Management"]])
 
-# Step 2: Apply sigmoid transformation to normalize values
-S_norm = expit(S * w_S)
-W_norm = expit(W * w_W)
-O_norm = expit(O * w_O)
-T_norm = expit(T * w_T)
+    # Step 1: Entropy Calculation
+    H_S = entropy(S, w_S)
+    H_W = entropy(W, w_W)
+    H_O = entropy(O, w_O)
+    H_T = entropy(T, w_T)
 
-# Step 3: Calculate the viability score
-kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
+    # Step 2: Apply sigmoid transformation to normalize values
+    S_norm = expit(S * w_S)
+    W_norm = expit(W * w_W)
+    O_norm = expit(O * w_O)
+    T_norm = expit(T * w_T)
 
-# Display Results
-st.subheader("🏆 Leadership Viability Score")
-st.write(f"### Your Viability Score: **{kp_score:.2f}**")
+    # Step 3: Calculate the viability score
+    kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
 
-# Interpretation of Score
-st.subheader("📈 Interpretation of Your Score")
-if kp_score > 200:
-    interpretation = "Outstanding potential for leadership."
-elif kp_score > 100:
-    interpretation = "Suitable for leadership with some improvement areas."
-elif kp_score > 50:
-    interpretation = "Moderate potential for leadership; requires significant development."
+    # Display Results
+    st.subheader("🏆 Leadership Viability Score")
+    st.write(f"### Your Viability Score: **{kp_score:.2f}**")
+
+    # Interpretation of Score
+    st.subheader("📈 Interpretation of Your Score")
+    if kp_score > 200:
+        interpretation = "Outstanding potential for leadership."
+    elif kp_score > 100:
+        interpretation = "Suitable for leadership with some improvement areas."
+    elif kp_score > 50:
+        interpretation = "Moderate potential for leadership; requires significant development."
+    else:
+        interpretation = "Not recommended for leadership without major improvements."
+    st.write(f"**{interpretation}**")
+
+    # Visualizations
+    components_df = pd.DataFrame({
+        "Components": ["Strengths", "Weaknesses", "Opportunities", "Threats"],
+        "Normalized Values": [np.mean(S_norm), np.mean(W_norm), np.mean(O_norm), np.mean(T_norm)],
+        "Entropy": [H_S, H_W, H_O, H_T]
+    })
+
+    # 1. Radar Chart
+    fig_radar = px.line_polar(
+        components_df, 
+        r="Normalized Values", 
+        theta="Components", 
+        line_close=True, 
+        title="2D Radar Chart of SWOT Elements"
+    )
+    fig_radar.update_traces(fill='toself')
+    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])))
+    st.plotly_chart(fig_radar)
+
+    # 2. Bar Chart
+    fig_bar = px.bar(
+        components_df, 
+        x="Components", 
+        y="Normalized Values", 
+        color="Normalized Values", 
+        labels={'x': 'Components', 'y': 'Normalized Values'}, 
+        title="2D Bar Chart of Normalized SWOT Values", 
+        color_continuous_scale='Plasma'
+    )
+    st.plotly_chart(fig_bar)
+
+    # Footer note
+    st.write("**AI Created by Allam Rafi FKUI 2022**")
 else:
-    interpretation = "Not recommended for leadership without major improvements."
-st.write(f"**{interpretation}**")
-
-# Visualizations
-components_df = pd.DataFrame({
-    "Components": ["Strengths", "Weaknesses", "Opportunities", "Threats"],
-    "Normalized Values": [np.mean(S_norm), np.mean(W_norm), np.mean(O_norm), np.mean(T_norm)],
-    "Entropy": [H_S, H_W, H_O, H_T]
-})
-
-# 1. Radar Chart
-fig_radar = px.line_polar(
-    components_df, 
-    r="Normalized Values", 
-    theta="Components", 
-    line_close=True, 
-    title="2D Radar Chart of SWOT Elements"
-)
-fig_radar.update_traces(fill='toself')
-fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])))
-st.plotly_chart(fig_radar)
-
-# 2. Bar Chart
-fig_bar = px.bar(
-    components_df, 
-    x="Components", 
-    y="Normalized Values", 
-    color="Normalized Values", 
-    labels={'x': 'Components', 'y': 'Normalized Values'}, 
-    title="2D Bar Chart of Normalized SWOT Values", 
-    color_continuous_scale='Plasma'
-)
-st.plotly_chart(fig_bar)
-
-# 3. 3D Scatter Plot
-fig_scatter = go.Figure(data=[go.Scatter3d(
-    x=components_df["Components"],
-    y=components_df["Normalized Values"],
-    z=components_df["Entropy"],
-    mode='markers',
-    marker=dict(
-        size=12,
-        color=components_df["Normalized Values"],
-        colorscale='Viridis',
-        opacity=0.8
-    )
-)])
-fig_scatter.update_layout(
-    title="3D Scatter Plot of SWOT Components",
-    scene=dict(
-        xaxis_title="Components",
-        yaxis_title="Normalized Values",
-        zaxis_title="Entropy"
-    )
-)
-st.plotly_chart(fig_scatter)
-
-# 4. 3D Surface Plot for Interaction Impact
-x, y = np.meshgrid(range(4), range(4))
-z = D  # Using D matrix for surface plot
-fig_surface = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale="Viridis")])
-fig_surface.update_layout(
-    title="3D Surface Plot of Dynamic Amplification Matrix",
-    scene=dict(
-        xaxis_title="SWOT Index",
-        yaxis_title="SWOT Index",
-        zaxis_title="Interaction Impact"
-    )
-)
-st.plotly_chart(fig_surface)
-
-# 5. Heatmap of SWOT Interaction
-fig_heatmap = px.imshow(D, text_auto=True, color_continuous_scale="Inferno", 
-                        title="Heatmap of SWOT Interaction Matrix")
-fig_heatmap.update_xaxes(title="SWOT Elements")
-fig_heatmap.update_yaxes(title="SWOT Elements")
-st.plotly_chart(fig_heatmap)
-
-# Display Detailed Data in Table Format
-st.subheader("📊 Detailed SWOT Analysis with Impact Factor")
-components_df["Impact Factor (%)"] = [np.sum(w_S), np.sum(w_W), np.sum(w_O), np.sum(w_T)]
-st.table(components_df)
-
-# Footer note
-st.write("**AI Created by Allam Rafi FKUI 2022**")
+    st.write("Please enter text for at least one SWOT element.")
