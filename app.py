@@ -60,9 +60,13 @@ def entropy(values, weights):
 
 # Leadership viability calculation
 def calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T):
-    numerator = S_norm * H_S * w_S.sum() + O_norm * H_O * w_O.sum()
-    denominator = W_norm * H_W * w_W.sum() + T_norm * H_T * w_T.sum()
+    numerator = S_norm * H_S * np.sum(w_S) + O_norm * H_O * np.sum(w_O)
+    denominator = W_norm * H_W * np.sum(w_W) + T_norm * H_T * np.sum(w_T)
     interaction_sum = np.dot(S_norm, O_norm)  # Simplified interaction
+
+    if denominator == 0:
+        return 0
+
     kp_score = np.log(numerator / (denominator + 1e-9)) + interaction_sum
     return float(kp_score)  # Ensure kp_score is a float
 
@@ -73,8 +77,7 @@ def calculate_leadership_scores(swot_text, model, qualities, confidence):
         quality_embedding = model.encode(description, convert_to_tensor=True)
         swot_embedding = model.encode(swot_text, convert_to_tensor=True)
         similarity_score = util.pytorch_cos_sim(swot_embedding, quality_embedding).item()
-        # Multiply by confidence level (1-10 scale) and scale similarity to 0-100
-        scores[quality] = similarity_score * 100 * (confidence / 10)
+        scores[quality] = similarity_score * 100 * (confidence / 10)  # Adjust by confidence level
     return scores
 
 # Streamlit app layout
@@ -83,92 +86,79 @@ st.write("**AI Created by Allam Rafi FKUI 2022**")
 st.markdown("Analyze your suitability for leadership with NLP and mathematical modeling.")
 
 # Input fields for SWOT descriptions and confidence levels
-st.subheader("📝 Enter Your SWOT Descriptions and Confidence Levels (1-10)")
+st.subheader("📝 Enter Your SWOT Descriptions with Confidence Levels (1-10)")
 
-# Strengths
-st.write("### Strengths")
-strengths_text = st.text_area("Enter your Strengths")
-strengths_confidence = st.slider("Confidence Level for Strengths", 1, 10, 5)
+def input_swot_category(category_name):
+    st.write(f"### {category_name}")
+    entries = []
+    num_entries = st.number_input(f"How many entries for {category_name}?", min_value=1, max_value=5, value=2)
+    for i in range(num_entries):
+        text = st.text_area(f"Describe {category_name} aspect #{i + 1}", key=f"{category_name}_text_{i}")
+        confidence = st.slider(f"Confidence level for {category_name} aspect #{i + 1}", 1, 10, 5, key=f"{category_name}_conf_{i}")
+        entries.append((text, confidence))
+    return entries
 
-# Weaknesses
-st.write("### Weaknesses")
-weaknesses_text = st.text_area("Enter your Weaknesses")
-weaknesses_confidence = st.slider("Confidence Level for Weaknesses", 1, 10, 5)
+strengths_entries = input_swot_category("Strengths")
+weaknesses_entries = input_swot_category("Weaknesses")
+opportunities_entries = input_swot_category("Opportunities")
+threats_entries = input_swot_category("Threats")
 
-# Opportunities
-st.write("### Opportunities")
-opportunities_text = st.text_area("Enter your Opportunities")
-opportunities_confidence = st.slider("Confidence Level for Opportunities", 1, 10, 5)
-
-# Threats
-st.write("### Threats")
-threats_text = st.text_area("Enter your Threats")
-threats_confidence = st.slider("Confidence Level for Threats", 1, 10, 5)
-
-# Button for Analyze
 if st.button("Analyze"):
-    if strengths_text or weaknesses_text or opportunities_text or threats_text:
-        # Calculate relevance scores using NLP model, adjusted by confidence
-        strengths_scores = calculate_leadership_scores(strengths_text, model, LEADERSHIP_QUALITIES, strengths_confidence)
-        weaknesses_scores = calculate_leadership_scores(weaknesses_text, model, LEADERSHIP_QUALITIES, weaknesses_confidence)
-        opportunities_scores = calculate_leadership_scores(opportunities_text, model, LEADERSHIP_QUALITIES, opportunities_confidence)
-        threats_scores = calculate_leadership_scores(threats_text, model, LEADERSHIP_QUALITIES, threats_confidence)
+    scores_dict = {}
+    for category, entries, weights in [("Strengths", strengths_entries, w_S), ("Weaknesses", weaknesses_entries, w_W),
+                                       ("Opportunities", opportunities_entries, w_O), ("Threats", threats_entries, w_T)]:
+        combined_text = " ".join([entry[0] for entry in entries])
+        avg_confidence = np.mean([entry[1] for entry in entries])
+        scores_dict[category] = calculate_leadership_scores(combined_text, model, LEADERSHIP_QUALITIES, avg_confidence)
 
-        # Normalize scores and calculate entropies
-        S_norm = normalize_scores(list(strengths_scores.values()), w_S)
-        W_norm = normalize_scores(list(weaknesses_scores.values()), w_W)
-        O_norm = normalize_scores(list(opportunities_scores.values()), w_O)
-        T_norm = normalize_scores(list(threats_scores.values()), w_T)
+    # Normalize scores and calculate entropies
+    S_norm = normalize_scores(list(scores_dict["Strengths"].values()), w_S)
+    W_norm = normalize_scores(list(scores_dict["Weaknesses"].values()), w_W)
+    O_norm = normalize_scores(list(scores_dict["Opportunities"].values()), w_O)
+    T_norm = normalize_scores(list(scores_dict["Threats"].values()), w_T)
 
-        H_S = entropy(S_norm, w_S)
-        H_W = entropy(W_norm, w_W)
-        H_O = entropy(O_norm, w_O)
-        H_T = entropy(T_norm, w_T)
+    H_S = entropy(S_norm, w_S)
+    H_W = entropy(W_norm, w_W)
+    H_O = entropy(O_norm, w_O)
+    H_T = entropy(T_norm, w_T)
 
-        # Calculate KP score
-        kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
-        st.subheader("🏆 Leadership Viability Score")
-        st.write(f"Your Viability Score: **{kp_score:.2f}**")
+    kp_score = calculate_kp(S_norm, W_norm, O_norm, T_norm, H_S, H_W, H_O, H_T)
+    st.subheader("🏆 Leadership Viability Score")
+    st.write(f"Your Viability Score: **{kp_score:.2f}**")
 
-        # Interpretation
-        st.subheader("📈 Interpretation of Your Score")
-        if kp_score > 200:
-            interpretation = "Outstanding potential for leadership."
-        elif kp_score > 100:
-            interpretation = "Suitable for leadership with some improvement areas."
-        elif kp_score > 50:
-            interpretation = "Moderate potential for leadership; requires development."
-        else:
-            interpretation = "Not recommended for leadership without major improvements."
-        st.write(f"**{interpretation}**")
-
-        # Visualization: Radar, Bar, 3D Scatter, and Surface Plot
-        scores_df = pd.DataFrame({
-            "Qualities": list(LEADERSHIP_QUALITIES.keys()),
-            "Strengths": list(strengths_scores.values()),
-            "Weaknesses": list(weaknesses_scores.values()),
-            "Opportunities": list(opportunities_scores.values()),
-            "Threats": list(threats_scores.values())
-        })
-
-        # Radar Chart
-        fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
-        fig_radar.update_traces(fill='toself')
-        st.plotly_chart(fig_radar)
-
-        # Bar Chart
-        fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
-        st.plotly_chart(fig_bar)
-
-        # 3D Scatter Plot
-        fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
-        fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
-        st.plotly_chart(fig_scatter)
-
-        # Surface Plot
-        fig_surface = go.Figure(data=[go.Surface(z=np.outer(S_norm, O_norm), x=list(scores_df["Qualities"]), y=list(scores_df["Qualities"]))])
-        fig_surface.update_layout(title="Surface Plot of SWOT Interaction Matrix")
-        st.plotly_chart(fig_surface)
-
+    st.subheader("📈 Interpretation of Your Score")
+    if kp_score > 200:
+        interpretation = "Outstanding potential for leadership."
+    elif kp_score > 100:
+        interpretation = "Suitable for leadership with some improvement areas."
+    elif kp_score > 50:
+        interpretation = "Moderate potential for leadership; requires development."
     else:
-        st.write("Please enter text for at least one SWOT element.")
+        interpretation = "Not recommended for leadership without major improvements."
+    st.write(f"**{interpretation}**")
+
+    scores_df = pd.DataFrame({
+        "Qualities": list(LEADERSHIP_QUALITIES.keys()),
+        "Strengths": list(scores_dict["Strengths"].values()),
+        "Weaknesses": list(scores_dict["Weaknesses"].values()),
+        "Opportunities": list(scores_dict["Opportunities"].values()),
+        "Threats": list(scores_dict["Threats"].values())
+    })
+
+    fig_radar = px.line_polar(scores_df, r="Strengths", theta="Qualities", line_close=True, title="Radar Chart of Strengths")
+    fig_radar.update_traces(fill='toself')
+    st.plotly_chart(fig_radar)
+
+    fig_bar = px.bar(scores_df, x="Qualities", y="Strengths", color="Strengths", title="Bar Chart of Strengths")
+    st.plotly_chart(fig_bar)
+
+    fig_scatter = go.Figure(data=[go.Scatter3d(x=scores_df["Qualities"], y=scores_df["Strengths"], z=scores_df["Weaknesses"], mode='markers', marker=dict(size=10))])
+    fig_scatter.update_layout(title="3D Scatter Plot of Strengths and Weaknesses")
+    st.plotly_chart(fig_scatter)
+
+    fig_surface = go.Figure(data=[go.Surface(z=scores_df.values[:, 1:], x=scores_df["Qualities"], y=scores_df.columns[1:])])
+    fig_surface.update_layout(title="Surface Plot of SWOT Interaction")
+    st.plotly_chart(fig_surface)
+
+    fig_heatmap = px.imshow(scores_df.values[:, 1:], title="Heatmap of SWOT Impact")
+    st.plotly_chart(fig_heatmap)
