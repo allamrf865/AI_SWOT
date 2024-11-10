@@ -33,29 +33,21 @@ def generate_3d_radar_chart(scores):
     )
     return fig
 
-# Function to generate a 3D bar chart for score distribution
-def generate_3d_bar_chart(scores):
+# Function to generate a 2D bar chart for score distribution
+def generate_bar_chart(scores):
     categories = list(scores.keys())
     values = [data['score'] for data in scores.values()]
 
-    fig = go.Figure(data=[go.Bar3d(
+    fig = go.Figure(data=[go.Bar(
         x=categories,
         y=values,
-        z=[0]*len(values),
-        dx=0.5,
-        dy=1,
-        dz=values,
-        marker=dict(color=values, colorscale='Viridis', showscale=True),
+        marker=dict(color=values, colorscale='Viridis')
     )])
 
     fig.update_layout(
-        title="3D Attribute Score Distribution",
-        scene=dict(
-            xaxis=dict(title="Attributes"),
-            yaxis=dict(title="Score"),
-            zaxis=dict(title="Depth"),
-            aspectmode="cube"
-        )
+        title="Attribute Score Distribution",
+        xaxis=dict(title="Attributes"),
+        yaxis=dict(title="Score")
     )
     return fig
 
@@ -118,34 +110,34 @@ def analyze_swot(strengths, weaknesses, opportunities, threats):
         "Mentorship": 0
     }
 
-    # Scoring based on keywords in strengths
-    if "leadership" in strengths.lower():
+    # Analyzing keywords in both English and Indonesian
+    if "leadership" in strengths.lower() or "kepemimpinan" in strengths.lower():
         scores["Leadership"] += 3
-    if "strategic thinking" in strengths.lower():
+    if "strategic thinking" in strengths.lower() or "berpikir strategis" in strengths.lower():
         scores["Strategic Thinking"] += 3
-    if "communication" in strengths.lower():
+    if "communication" in strengths.lower() or "komunikasi" in strengths.lower():
         scores["Communication"] += 3
-    if "adaptability" in strengths.lower():
+    if "adaptability" in strengths.lower() or "adaptasi" in strengths.lower():
         scores["Adaptability"] += 3
-    if "problem-solving" in strengths.lower():
+    if "problem-solving" in strengths.lower() or "pemecahan masalah" in strengths.lower():
         scores["Problem-Solving"] += 3
-    if "emotional intelligence" in strengths.lower() or "empathy" in strengths.lower():
+    if "emotional intelligence" in strengths.lower() or "kecerdasan emosional" in strengths.lower():
         scores["Emotional Intelligence"] += 3
-    if "visionary" in strengths.lower():
+    if "visionary" in strengths.lower() or "visioner" in strengths.lower():
         scores["Visionary"] += 3
-    if "execution" in strengths.lower():
+    if "execution" in strengths.lower() or "eksekusi" in strengths.lower():
         scores["Execution"] += 3
-    if "mentorship" in strengths.lower():
+    if "mentorship" in strengths.lower() or "pembimbingan" in strengths.lower():
         scores["Mentorship"] += 3
 
-    # Adjust scores based on weaknesses
-    if "indecisive" in weaknesses.lower():
+    # Adjust scores based on weaknesses in both English and Indonesian
+    if "indecisive" in weaknesses.lower() or "ragu-ragu" in weaknesses.lower():
         scores["Decision-Making"] -= 1
-    if "communication" in weaknesses.lower():
+    if "communication" in weaknesses.lower() or "komunikasi" in weaknesses.lower():
         scores["Communication"] -= 2
-    if "confidence" in weaknesses.lower():
+    if "confidence" in weaknesses.lower() or "kepercayaan diri" in weaknesses.lower():
         scores["Leadership"] -= 2
-    if "emotion" in weaknesses.lower():
+    if "emotion" in weaknesses.lower() or "emosi" in weaknesses.lower():
         scores["Emotional Intelligence"] -= 2
 
     # Scale scores to a 1-10 range
@@ -167,16 +159,16 @@ st.title("🌟 Comprehensive SWOT Analysis with Leadership Suitability 🌟")
 st.write("**Enter your SWOT details below to get detailed insights and leadership suitability recommendations.**")
 
 # Input fields for SWOT details
-strengths = st.text_area("Enter your Strengths:", "")
-weaknesses = st.text_area("Enter your Weaknesses:", "")
-opportunities = st.text_area("Enter your Opportunities:", "")
-threats = st.text_area("Enter your Threats:", "")
+strengths = st.text_area("Enter your Strengths (English or Indonesian):", "")
+weaknesses = st.text_area("Enter your Weaknesses (English or Indonesian):", "")
+opportunities = st.text_area("Enter your Opportunities (English or Indonesian):", "")
+threats = st.text_area("Enter your Threats (English or Indonesian):", "")
 
 if st.button("Analyze"):
     with st.spinner("Analyzing your SWOT..."):
         scores = analyze_swot(strengths, weaknesses, opportunities, threats)
         radar_fig = generate_3d_radar_chart(scores)
-        bar_chart_fig = generate_3d_bar_chart(scores)
+        bar_chart_fig = generate_bar_chart(scores)
         scatter_plot_fig = generate_3d_scatter_plot(scores)
         suitability_fig = generate_suitability_surface(scores)
 
@@ -184,7 +176,7 @@ if st.button("Analyze"):
     st.subheader("🌐 3D Radar Chart of Leadership Attributes")
     st.plotly_chart(radar_fig, use_container_width=True)
 
-    st.subheader("📊 3D Bar Chart of Attribute Scores")
+    st.subheader("📊 Bar Chart of Attribute Scores")
     st.plotly_chart(bar_chart_fig, use_container_width=True)
 
     st.subheader("💡 3D Scatter Plot of Attribute Correlation")
