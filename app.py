@@ -4,7 +4,6 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from scipy.special import expit  # Sigmoid function
-from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 import plotly.express as px
 import plotly.graph_objects as go
